@@ -29,7 +29,7 @@ void RTC_DS1307::adjust(const DateTime& dt)
     Wire.write(bin2bcd(0));
     Wire.write(bin2bcd(dt.d));
     Wire.write(bin2bcd(dt.m));
-    Wire.write(bin2bcd(dt.year() - 2000));
+    Wire.write(bin2bcd(dt.y - 2000));
     Wire.write(i);
     Wire.endTransmission();
 }
@@ -48,6 +48,7 @@ DateTime RTC_DS1307::now()
   uint8_t d = bcd2bin(Wire.read());
   uint8_t m = bcd2bin(Wire.read());
   uint16_t y = bcd2bin(Wire.read());    // no need to convert +2000
+  y += 2000;
   DateTime now(y, m, d, hh, mm);
   return now;
 }

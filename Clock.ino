@@ -8,6 +8,14 @@
 #include "images/zon.h"
 
 //#define ADJUST_TIME_AT_STARTUP
+#define USE_SWITCH
+
+//#define DEBUG_INIT	Serial.begin(9600)
+//#define DEBUG_PRN		Serial.print
+//#define DEBUG_PRNLN	Serial.println
+#define DEBUG_INIT	//
+#define DEBUG_PRN	//
+#define DEBUG_PRNLN	// 
 
 #include <Arduino.h> // capital A so it is error prone on case-sensitive filesystems
 
@@ -18,9 +26,6 @@
 #define LCD_CD A2 // Command/Data goes to Analog 2
 #define LCD_WR A1 // LCD Write goes to Analog 1
 #define LCD_RD A0 // LCD Read goes to Analog 0
-
-#define PIN_PIR     13  // also buildin led
-#define PIR_ACTIVE  HIGH
 
 #define PIN_RX  0   // used for debug
 #define PIN_TX  1
@@ -39,19 +44,19 @@
 
 // Assign human-readable names to some common 16-bit color values:
 // 5 bits red , 6 bits green, 5 bits blue
-#define	BLACK   0x0000
-#define	BLUE    0x001F
+#define	BLACK   	0x0000
+#define	BLUE    	0x001F
 #define LIGHTBLUE    0x187F
-#define	RED     0xF800
-#define LIGHTRED 0xFACB
-#define	GREEN   0x07E0
-#define CYAN    0x07FF
-#define MAGENTA 0xF81F
-#define YELLOW  0xFFE0
-#define WHITE   0xFFFF
-#define GRAY1   0x38E7
-#define GRAY    0xD69A
-#define LIGHTGRAY 0xE71C
+#define	RED     	0xF800
+#define LIGHTRED 	0xFACB
+#define	GREEN   	0x07E0
+#define CYAN    	0x07FF
+#define MAGENTA 	0xF81F
+#define YELLOW  	0xFFE0
+#define WHITE   	0xFFFF
+#define GRAY1   	0x38E7
+#define GRAY    	0xD69A
+#define LIGHTGRAY	0xE71C
 
 #define TFT_WIDTH  320
 #define TFT_HEIGHT 240
@@ -59,76 +64,63 @@
 #define TFT_CHAR_WIDTH  6
 #define TFT_CHAR_HEIGHT 8
 
-
-typedef enum
-{
-  DISPLAY_TIME = 0,
-  DISPLAY_PRESSURE,
-  MAX_DISPLAYS
- } DISPLAYS;
-
-/*
- * 1. temp/press sun/moon
- *      time
- *   date-string
- */
+// position and sizes of displayed items
 #define WEATHERICON_WIDTH      48
 #define WEATHERICON_HEIGHT     48
+#define MOON_RADIUS 	 16
 
 #define XPOS_SUNMOON     (TFT_WIDTH-WIDTH_SUNMOON)
 #define YPOS_SUNMOON     0
-#define XPOS_MOON        (XPOS_SUNMOON+MOON_RADIUS)
-#define XPOS_SUN         (XPOS_MOON+MOON_RADIUS*2+10)
+#define XPOS_MOON        (XPOS_SUNMOON + (WIDTH_SUNMOON - WIDTH_MOON)/2)
+#define YPOS_MOON        (YPOS_SUN+HEIGHT_SUN)
+#define WIDTH_MOON 	     (2*MOON_RADIUS)
+#define HEIGHT_MOON      (2*MOON_RADIUS)
+#define XPOS_SUN         (XPOS_SUNMOON)
 #define YPOS_SUN         0
-#define WIDTH_SUNMOON    (MOON_RADIUS*3+10+TFT_CHAR_WIDTH*DATE_SIZE*5)
-#define HEIGHT_SUNMOON   (WEATHERICON_HEIGHT+2*TFT_CHAR_HEIGHT*DATE_SIZE)
-#define MOON_RADIUS 16
+#define WIDTH_SUN 	     (TFT_CHAR_WIDTH*DATE_SIZE*5)
+#define HEIGHT_SUN       (WEATHERICON_HEIGHT+2*TFT_CHAR_HEIGHT*DATE_SIZE)
+#define WIDTH_SUNMOON    (WIDTH_SUN)
+#define HEIGHT_SUNMOON   (HEIGHT_SUN + HEIGHT_MOON)
 
-#define TIME_SIZE   10
-#define STRLEN_TIME 5
-#define WIDTH_TIME  (TFT_CHAR_WIDTH*TIME_SIZE*STRLEN_TIME)
-#define HEIGHT_TIME (TFT_CHAR_HEIGHT*TIME_SIZE)
-#define XPOS_TIME   ((TFT_WIDTH-WIDTH_TIME)/2)
-#define YPOS_TIME   ((YPOS_SUNMOON+HEIGHT_SUNMOON) + ((TFT_HEIGHT-(YPOS_SUNMOON+HEIGHT_SUNMOON)-HEIGHT_TIME)/2))
+#define TIME_SIZE   	10
+#define STRLEN_TIME 	5
+#define WIDTH_TIME  	(TFT_CHAR_WIDTH*TIME_SIZE*STRLEN_TIME)
+#define HEIGHT_TIME 	(TFT_CHAR_HEIGHT*TIME_SIZE)
+#define DATE_SIZE   	2
+#define STRLEN_DATE 	(10+12)
+#define WIDTH_DATE  	(TFT_CHAR_WIDTH*DATE_SIZE*STRLEN_DATE)
+#define HEIGHT_DATE 	(TFT_CHAR_HEIGHT*DATE_SIZE)
+#define XPOS_TIME   	((TFT_WIDTH-WIDTH_TIME)/2)
+#define YPOS_TIME   	(TFT_HEIGHT-HEIGHT_TIME-HEIGHT_DATE-1)
 
-#define DATE_SIZE   2
-#define STRLEN_DATE (10+12)
-#define WIDTH_DATE  (TFT_CHAR_WIDTH*DATE_SIZE*STRLEN_DATE)
-#define HEIGHT_DATE (TFT_CHAR_HEIGHT*DATE_SIZE)
-#define XPOS_DATE   ((TFT_WIDTH-WIDTH_DATE)/2)
-#define YPOS_DATE   (YPOS_TIME+HEIGHT_TIME) // 300
-#define XPOS_ACTIVE_ALARMS  XPOS_DATE
-#define YPOS_ACTIVE_ALARMS  (YPOS_DATE+HEIGHT_DATE+14)
+#define XPOS_DATE   	((TFT_WIDTH-WIDTH_DATE)/2)
+#define YPOS_DATE   	(YPOS_TIME+HEIGHT_TIME) // 300
 
 #define TEMPPRES_SIZE   2
-#define XPOS_PRES       10
-#define YPOS_PRES       10
-#define XPOS_TEMP       XPOS_PRES
-#define YPOS_TEMP       (YPOS_PRES+TFT_CHAR_HEIGHT*TEMPPRES_SIZE+4)
-#define WIDTH_TEMPPRES  (TFT_CHAR_WIDTH*TEMPPRES_SIZE*8)        //1040 mBar
-#define HEIGHT_TEMPPRES (YPOS_TEMP+TFT_CHAR_HEIGHT*TEMPPRES_SIZE+4)
+#define XPOS_TEMPPRES   10
+#define YPOS_TEMPPRES   (HEIGHT_PRES_GRAPH+10)
+#define WIDTH_TEMPPRES	(TFT_CHAR_WIDTH*TEMPPRES_SIZE*16)        //"1040 mBar 88.8 C" max string = 16 characters
+#define HEIGHT_TEMPPRES (TFT_CHAR_HEIGHT*TEMPPRES_SIZE+4)
 
-
-/*
- * 1. temp/press sun/moon
- * 4.  barometric chart
- */
-#define MIN_PRESSURE  960
-#define MAX_PRESSURE  1040
-#define MIN_PRESSURE_STR  "960"
-#define MAX_PRESSURE_STR  "1040"
-//#define NR_OF_PRESSURES (3*24*3)     // last 3 days, 3 values/hour
-#define NR_OF_PRESSURES (3*24*2)     // last 3 days, 2 values/hour
-#define XPOS_PRES_GRAPH ((TFT_WIDTH-WIDTH_PRES_GRAPH)/2)
-#define YPOS_PRES_GRAPH ((TFT_HEIGHT-HEIGHT_PRES_GRAPH)/2)
-#define HEIGHT_PRES_GRAPH (MAX_PRESSURE-MIN_PRESSURE)
-#define WIDTH_PRES_GRAPH NR_OF_PRESSURES
-//#define WIDTH_PRES_GRAPH 220
-#define GRAPHCOLOR   WHITE
+#define MIN_PRESSURE  		960
+#define MAX_PRESSURE  		1040
+#define MIN_TEMPERATURE		10
+#define MAX_TEMPERATURE		30
+#define SAMPLES_A_DAY		(24*3)
+#define NR_OF_DAYS			3
+#define NR_OF_SAMPLES 		(SAMPLES_A_DAY*NR_OF_DAYS)
+#define XPOS_PRES_GRAPH 	0
+#define YPOS_PRES_GRAPH 	0
+#define HEIGHT_PRES_GRAPH 	(MAX_PRESSURE-MIN_PRESSURE)
+#define WIDTH_PRES_GRAPH 	(NR_OF_SAMPLES+TFT_CHAR_WIDTH*2)
+#define PRESSURE_COLOR   	LIGHTBLUE
+#define TEMPERATURE_COLOR   LIGHTRED
+#define LABEL_SIZE   		1
 
 char mPrevMinute=0;
 DateTime mNow;
 DateTime mPrevDate;
+
 const char maandag[] PROGMEM = "maandag";
 const char dinsdag[] PROGMEM = "dinsdag";
 const char woensdag[] PROGMEM = "woensdag";
@@ -138,14 +130,15 @@ const char zaterdag[] PROGMEM = "zaterdag";
 const char zondag[] PROGMEM = "zondag";
 const char* const days_table[] PROGMEM = {maandag,dinsdag,woensdag,donderdag,vrijdag,zaterdag,zondag};
 
-bool	mPirState = false;
-Timer	mPirTimer;
+typedef struct
+{
+	byte pressure;
+	byte temperature;
+} History;
 
-uint8_t mActiveDisplay = 0;
-
-byte mHistory[NR_OF_PRESSURES];
-int  mHistoryIndex = 0;
-byte mPrevSampleTime = 0;
+History mHistory[NR_OF_SAMPLES];
+int  	mHistoryIndex = 0;
+byte 	mPrevSampleTime = 0;
 
 double mCurrentTemp=0;
 double mCurrentPress=0;
@@ -193,131 +186,64 @@ Bmp180     mBmp180;
 
 void setup(void)
 {
-	Serial.begin(9600);
+	DEBUG_INIT;
 	delay(100);
-	
-	pinMode(PIN_PIR,INPUT);
 	
 	Wire.begin();
 	mRtc.begin();
 	mTft.init();
 	mBmp180.Init();
 	
-	for( int i=0; i<NR_OF_PRESSURES; i++)
+	for( int i=0; i<NR_OF_SAMPLES; i++)
 	{
-		mHistory[i++]=0;
-		mHistory[i]=HEIGHT_PRES_GRAPH-1;
+		mHistory[i].temperature=200;	// outside range
+		mHistory[i].pressure=200;
 	}
 	mHistoryIndex = 0;
 	
 	mNow = mRtc.now();
 	
 	#ifdef ADJUST_TIME_AT_STARTUP
-	Serial.print("Adjust RTC to ");
-	Serial.print(__DATE__); Serial.print(__TIME__);
+	DEBUG_PRN("Adjust RTC to ");
+	DEBUG_PRN(__DATE__); DEBUG_PRN(__TIME__);
 	DateTime nu(BUILDTM_YEAR,BUILDTM_MONTH,BUILDTM_DAY,BUILDTM_HOUR,BUILDTM_MIN);
 	mRtc.adjust(nu);
 	#endif
 	
-	ActivateDisplay(DISPLAY_TIME);
+	mTft.fillScreen(BLACK);
+	
+	handleTempPressure();
+	showTempPressure();
+	showTime(mNow);
+	displayGraph();
 }
 
 
 void loop(void)
 {
-	static unsigned long mPrevTimeTimeMs = 0;
-
-	unsigned long nowMs = millis();
-	unsigned long diff = nowMs-mPrevTimeTimeMs;
+	handleTempPressure();
+	showTempPressure();
 	
-	if (diff>10000)
+	mNow = mRtc.now();
+
+	if (mPrevMinute != mNow.mm)
 	{
-		mNow = mRtc.now();
+	    showTime(mNow);
 
-		if (mPrevMinute != mNow.mm)
+		// add a new value to the graphics bar every 20 minutes
+		if ((mNow.mm==0 || mNow.mm==20 || mNow.mm==40))
 		{
-			handleTempPressure();
-
-			// add a new value to the graphics bar every 30 minutes
-			byte lNowMinute = mNow.mm;
-			if ((lNowMinute==0 || lNowMinute==30))
-			{
-				registerPressure((byte)mCurrentPress);
-			}
-
-			UpdateDisplay(DISPLAY_TIME);
-			mPrevMinute = lNowMinute;  // mNow.minute();
+			registerData(mCurrentPress,mCurrentTemp);
+			displayGraph();
 		}
-		mPrevTimeTimeMs = nowMs;
+		mPrevMinute = mNow.mm;
 	}
 
-	/**
-	if(digitalRead(PIN_PIR))
-	{
-		if (!mPirState)	// rising edge
-		{
-			mPirState = true;
-			Serial.println("Pir activated");
-			ActivateDisplay(DISPLAY_PRESSURE);
-			mPirTimer.Start(1000);
-		}
-		if (mPirTimer.HasExpired())
-		{
-			ActivateDisplay(DISPLAY_TIME);
-			mPirTimer.Stop();
-		}
-	}
-	else
-	{
-		if(mPirState)
-		{
-			Serial.println("Pir deactivated");
-			ActivateDisplay(DISPLAY_TIME);
-			mPirState = false;
-		}
-	}
-	**/
-
-	delay(100);
+	delay(10000);	// check once every 10 seconds
 }
 
-void NextDisplay()
-{
-    mActiveDisplay++;
-    mActiveDisplay %= MAX_DISPLAYS;
-    ActivateDisplay(mActiveDisplay);
-}
 
-void UpdateDisplay(byte aDisplay)
-{
-  if(mActiveDisplay==aDisplay)
-  {
-    ShowDisplay();
-  }
-}
-
-void ActivateDisplay(byte aDisplay)
-{
-  mActiveDisplay = aDisplay;
-  mTft.fillScreen(BLACK);
-  ShowDisplay();
-}
-
-void ShowDisplay()
-{
-  if(mActiveDisplay==DISPLAY_TIME)
-  {
-    mPrevDate.Clear();  // force update of date
-    showTime(mNow);
-    showTempPressure();
-  }
-  else if(mActiveDisplay==DISPLAY_PRESSURE)
-  {
-    displayPressureGraph();
-  }
-}
-
-bool getTempAndPressure(double &lTemp,double &lPress)
+bool getTempAndPressure(double& lTemp,double& lPress)
 {
   if( mBmp180.StartTemperature()!=0 )
   {
@@ -335,37 +261,70 @@ bool getTempAndPressure(double &lTemp,double &lPress)
   return true;
 }
 
-void registerPressure(byte lPressure)
+void registerData(double aPressure, double aTemperature)
 {
-  if(mHistoryIndex>=NR_OF_PRESSURES)
-  {
-    // history is 'full', clear oldest value and shift everything else
-    // could be faster using memcpy 
-    for(int i=0; i<(NR_OF_PRESSURES-1); i++)
-    {
-      mHistory[i] = mHistory[i+1];
-    }
-    mHistoryIndex = NR_OF_PRESSURES-1;
-  }
-  mHistory[mHistoryIndex] = lPressure;
-  mHistoryIndex++;
+	double p = max(aPressure,MIN_PRESSURE);
+	p = min(p,MAX_PRESSURE);
+	p -= MIN_PRESSURE;
+
+	double t = max(aTemperature,MIN_TEMPERATURE);
+	t = min(t,MAX_TEMPERATURE);
+	t -= MIN_TEMPERATURE;
+	t *= (MAX_PRESSURE-MIN_PRESSURE)/(MAX_TEMPERATURE-MIN_TEMPERATURE);
+
+	if(mHistoryIndex>=NR_OF_SAMPLES)
+	{
+		// history is 'full', clear oldest value and shift everything else
+		// could be faster using memcpy 
+		for(int i=0; i<(NR_OF_SAMPLES-1); i++)
+		{
+			mHistory[i] = mHistory[i+1];
+		}
+		mHistoryIndex = NR_OF_SAMPLES-1;
+	}
+	mHistory[mHistoryIndex].pressure = p;
+	mHistory[mHistoryIndex].temperature = t;
+	DEBUG_PRNLN(p);
+	DEBUG_PRNLN(t);
+	mHistoryIndex++;
 }
 
-void displayPressureGraph()
+void displayGraph()
 {
-  showTempPressure();
+	char str[12];
+	// whole grafic is shifted 2 characters to the right for display of temperature label
+	byte xPos = XPOS_PRES_GRAPH + 2*TFT_CHAR_HEIGHT*LABEL_SIZE;
 
-  mTft.drawLine(XPOS_PRES_GRAPH, YPOS_PRES_GRAPH, XPOS_PRES_GRAPH+NR_OF_PRESSURES, YPOS_PRES_GRAPH, GRAY1);    
-  mTft.drawLine(XPOS_PRES_GRAPH, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH, XPOS_PRES_GRAPH+NR_OF_PRESSURES, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH, GRAY1);     
-  mTft.setCursor(XPOS_PRES_GRAPH,YPOS_PRES_GRAPH-2*TFT_CHAR_HEIGHT);   
-  mTft.print(MIN_PRESSURE_STR);
-  mTft.setCursor(XPOS_PRES_GRAPH+NR_OF_PRESSURES-4*TFT_CHAR_WIDTH,YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH+2);   
-  mTft.print(MAX_PRESSURE_STR);
-  
-  for(int i=0; i<NR_OF_PRESSURES; i++)
-  {
-    mTft.drawPixel(XPOS_PRES_GRAPH+i, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH-mHistory[i], GRAPHCOLOR);
-  }
+	mTft.drawLine(xPos, YPOS_PRES_GRAPH, xPos+NR_OF_SAMPLES, YPOS_PRES_GRAPH, LIGHTGRAY);
+	mTft.drawLine(xPos, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH, xPos+NR_OF_SAMPLES, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH, LIGHTGRAY);
+	for (int i=0; i<4; i++)
+	{
+		mTft.drawLine(xPos + i*SAMPLES_A_DAY, YPOS_PRES_GRAPH, xPos+i*SAMPLES_A_DAY, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH, LIGHTGRAY);
+	}	
+	mTft.setTextSize(LABEL_SIZE);
+	mTft.setTextColor(PRESSURE_COLOR);
+	mTft.setCursor(xPos+NR_OF_SAMPLES,YPOS_PRES_GRAPH);   
+	sprintf(str,"%4d",MAX_PRESSURE);
+	mTft.print(str);
+	mTft.setCursor(xPos+NR_OF_SAMPLES,YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH-TFT_CHAR_HEIGHT*LABEL_SIZE);
+	sprintf(str,"%4d",MIN_PRESSURE);
+	mTft.print(str);
+
+	mTft.setTextColor(TEMPERATURE_COLOR);
+	mTft.setCursor(XPOS_PRES_GRAPH,YPOS_PRES_GRAPH);   
+	sprintf(str,"%2d",MAX_TEMPERATURE);
+	mTft.print(str);
+	mTft.setCursor(XPOS_PRES_GRAPH,YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH-TFT_CHAR_HEIGHT*LABEL_SIZE);
+	sprintf(str,"%2d",MIN_TEMPERATURE);
+	mTft.print(str);
+	
+	for(int i=0; i<NR_OF_SAMPLES; i++)
+	{
+		if (mHistory[i].pressure<100)
+			mTft.drawPixel(xPos+i, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH-mHistory[i].pressure, PRESSURE_COLOR);
+		if (mHistory[i].temperature<100)
+			mTft.drawPixel(xPos+i, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH-mHistory[i].temperature, TEMPERATURE_COLOR);
+	}
 }
 
 void showSunMoon(DateTime aDateTime)
@@ -373,19 +332,18 @@ void showSunMoon(DateTime aDateTime)
   // erase all old information
   mTft.fillRect(XPOS_SUNMOON,YPOS_SUNMOON,WIDTH_SUNMOON,HEIGHT_SUNMOON, BLACK);
 
-  byte lMoonPhase = GetMoonPhase(aDateTime);
+  byte moonPhase = GetMoonPhase(aDateTime);
+  DEBUG_PRN("Maan="); DEBUG_PRNLN(moonPhase);
 
   // first draw 'full-moon' 
-  mTft.fillCircle(XPOS_MOON,YPOS_SUNMOON+MOON_RADIUS+10, MOON_RADIUS, LIGHTGRAY);   // x,y is center of circle
+  mTft.fillCircle(XPOS_MOON+MOON_RADIUS,YPOS_MOON+MOON_RADIUS, MOON_RADIUS, LIGHTGRAY);   // x,y is center of circle
   // then draw shadow of the earth over it
-  int16_t lEarthPos = - (2*lMoonPhase*2*MOON_RADIUS/29);
-  if(lMoonPhase>14)
+  int16_t earthPos = - (2*moonPhase*2*MOON_RADIUS/29);
+  if(moonPhase>14)
   {
-    lEarthPos += 4*MOON_RADIUS;
+    earthPos += 4*MOON_RADIUS;
   }
-  mTft.fillCircle(XPOS_MOON+lEarthPos,YPOS_SUNMOON+MOON_RADIUS+10, MOON_RADIUS, BLACK);   // x,y is center of circle
-
-  //mTft.setTextColor(WHITE);
+  mTft.fillCircle(XPOS_MOON+MOON_RADIUS+earthPos,YPOS_MOON+MOON_RADIUS, MOON_RADIUS, BLACK);   // x,y is center of circle
 
   // Sun rise and set:
   // use top halve of sunny weather icon
@@ -408,17 +366,14 @@ void handleTempPressure()
 
 void showTempPressure()
 {
-  char str[10];
+  char str[20];
+  sprintf(str,"%d.%1d C  %4d mBar", (int)mCurrentTemp,(int)(mCurrentTemp*10)%10, (int)mCurrentPress );
 
-  mTft.fillRect(XPOS_PRES,YPOS_PRES,WIDTH_TEMPPRES,HEIGHT_TEMPPRES, BLACK);
-  //mTft.setTextColor(WHITE);  
+  mTft.fillRect(XPOS_TEMPPRES,YPOS_TEMPPRES,WIDTH_TEMPPRES,HEIGHT_TEMPPRES, BLACK);
+  mTft.setTextColor(WHITE);  
+  mTft.setTextSize(TEMPPRES_SIZE);
   
-  mTft.setCursor(XPOS_PRES,YPOS_PRES);
-  sprintf(str,"%4d mBar",(int)mCurrentPress);
-  mTft.print(str);
-
-  sprintf(str,"%d.%1d C",(int)mCurrentTemp,(int)(mCurrentTemp*10)%10);
-  mTft.setCursor(XPOS_TEMP,YPOS_TEMP);
+  mTft.setCursor(XPOS_TEMPPRES,YPOS_TEMPPRES);
   mTft.print(str);
 }
 
@@ -429,16 +384,16 @@ void showTime(DateTime aDateTime)
 
   mTft.fillRect(XPOS_TIME,YPOS_TIME,WIDTH_TIME,HEIGHT_TIME, BLACK);
   mTft.setCursor(XPOS_TIME,YPOS_TIME);
-  mTft.setTextColor(WHITE);  
+  mTft.setTextColor(WHITE);
   mTft.setTextSize(TIME_SIZE);
-  mTft.print(aDateTime.GetTimeStr());
+  mTft.print(aDateTime.GetTimeStr(true));
   mTft.setTextSize(2);  // terug naar default
   mTft.setTextColor(WHITE);  
 
   if ((aDateTime.dayOfWeek() != mPrevDate.dayOfWeek()) ||
       (aDateTime.d != mPrevDate.d) ||
       (aDateTime.m != mPrevDate.m) || 
-      (aDateTime.year() != mPrevDate.year()))
+      (aDateTime.y != mPrevDate.y))
   {
     mTft.fillRect(0,YPOS_DATE,TFT_WIDTH,HEIGHT_DATE, BLACK);
     mTft.setCursor(XPOS_DATE,YPOS_DATE);
