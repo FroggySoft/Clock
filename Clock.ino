@@ -10,12 +10,12 @@
 //#define ADJUST_TIME_AT_STARTUP
 #define USE_SWITCH
 
-//#define DEBUG_INIT	Serial.begin(9600)
-//#define DEBUG_PRN		Serial.print
-//#define DEBUG_PRNLN	Serial.println
-#define DEBUG_INIT	//
-#define DEBUG_PRN	//
-#define DEBUG_PRNLN	// 
+#define DEBUG_INIT	Serial.begin(9600)
+#define DEBUG_PRN		Serial.print
+#define DEBUG_PRNLN	Serial.println
+//#define DEBUG_INIT	//
+//#define DEBUG_PRN	//
+//#define DEBUG_PRNLN	// 
 
 #include <Arduino.h> // capital A so it is error prone on case-sensitive filesystems
 
@@ -295,6 +295,8 @@ void displayGraph()
 	// whole grafic is shifted 2 characters to the right for display of temperature label
 	byte xPos = XPOS_PRES_GRAPH + 2*TFT_CHAR_HEIGHT*LABEL_SIZE;
 
+	mTft.fillRect(XPOS_PRES_GRAPH,YPOS_PRES_GRAPH,WIDTH_PRES_GRAPH,HEIGHT_PRES_GRAPH, BLACK);
+	
 	mTft.drawLine(xPos, YPOS_PRES_GRAPH, xPos+NR_OF_SAMPLES, YPOS_PRES_GRAPH, LIGHTGRAY);
 	mTft.drawLine(xPos, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH, xPos+NR_OF_SAMPLES, YPOS_PRES_GRAPH+HEIGHT_PRES_GRAPH, LIGHTGRAY);
 	for (int i=0; i<4; i++)
