@@ -218,30 +218,104 @@ void setup(void)
 	displayGraph();
 }
 
-
+int count=0;
 void loop(void)
 {
-	handleTempPressure();
-	showTempPressure();
-	
-	mNow = mRtc.now();
-
-	if (mPrevMinute != mNow.mm)
+	count++;
+	if(count>=100)	// check once every 10 seconds
 	{
-	    showTime(mNow);
-
-		// add a new value to the graphics bar every 20 minutes
-		if ((mNow.mm==0 || mNow.mm==20 || mNow.mm==40))
+		handleTempPressure();
+		showTempPressure();
+		
+		mNow = mRtc.now();
+	
+		if (mPrevMinute != mNow.mm)
 		{
-			registerData(mCurrentPress,mCurrentTemp);
-			displayGraph();
+		    showTime(mNow);
+	
+			// add a new value to the graphics bar every 20 minutes
+			if ((mNow.mm==0 || mNow.mm==20 || mNow.mm==40))
+			{
+				registerData(mCurrentPress,mCurrentTemp);
+				displayGraph();
+			}
+			mPrevMinute = mNow.mm;
 		}
-		mPrevMinute = mNow.mm;
+		count=0;
 	}
-
-	delay(10000);	// check once every 10 seconds
+	
+	HandleSerial();
+	delay(100);
 }
 
+
+String cmd="";
+void HandleSerial()
+{
+	if (Serial.available())
+	{
+		char c = Serial.read();
+
+		if (c!='\n' && cmd.length()<20)
+		{
+			cmd += c;
+		}
+		else
+		{
+			if (cmd.indexOf("time=")!=-1)
+			{
+				int pos = cmd.indexOf("=");
+				if (pos!=-1 && cmd[pos+3]==':')
+				{
+					int hour = cmd.substring(pos+1).toInt();
+					int minute = cmd.substring(pos+4).toInt();
+					mNow = mRtc.now();
+					mNow.mm = minute;
+					mNow.hh = hour;
+					mRtc.adjust(mNow);
+					showTime(mNow);
+				}
+				else
+				{
+					help();
+				}
+			}
+			else if (cmd.indexOf("date=")!=-1)
+			{
+				int pos = cmd.indexOf("=");
+				if (pos!=-1 && cmd[pos+3]=='-' && cmd[pos+6]=='-' )
+				{
+					int day = cmd.substring(pos+1).toInt();
+					int month = cmd.substring(pos+4).toInt();
+					int year = cmd.substring(pos+7).toInt();
+					mNow = mRtc.now();
+					mNow.d = day;
+					mNow.m = month;
+					mNow.y = year;
+					mRtc.adjust(mNow);
+					showTime(mNow);
+				}
+				else
+				{
+					help();
+				}
+			}
+			else
+			{
+				help();
+			}
+			cmd = "";
+		}
+	}	
+}
+
+void help()
+{
+	Serial.println("Set time:");			
+	Serial.println("  time=hh:mm");			
+	Serial.println("Set date:");			
+	Serial.println("  date=dd-mm-yyyy");
+}
 
 bool getTempAndPressure(double& lTemp,double& lPress)
 {
